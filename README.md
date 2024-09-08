@@ -29,7 +29,8 @@ pip install -r requirements.txt
 
 ## Running the model
 
-The dataset is provided as a zip-file. The program will open it and and extract files if necessary, i.e if they are not extracted before.
+The dataset is provided as a zip-file in the kaggle link. Download it if you don't have it. 
+The program will open it and and extract files if necessary, i.e if they are not extracted before.
 Run 
 ```
 python spotify_classifier.py
