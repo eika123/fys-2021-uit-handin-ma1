@@ -134,10 +134,7 @@ def loss_function(u: np.ndarray, y: np.ndarray) -> np.ndarray:
     N is number of samples 
     """
     log = np.log
-    #yt = y.transpose()
     yt = y.T
-    # print(f"lossfunc: yt*log(u) = {yt*log(u)},     (1 - yt)*log(1 - u) = {(1 - yt)*log(1 - u)}")
-    # print(f"lossfunc: -np.sum(yt*log(u) + (1 - yt)*log(1 - u)) = {-np.sum(yt*log(u) + (1 - yt)*log(1 - u))}")
 
     return ( -np.sum(yt*log(u) + (1 - yt)*log(1 - u)) )
 
@@ -195,11 +192,11 @@ def learn_gradient_descent(trainingset: dict[str, np.ndarray],
     X = np.concatenate((X, bias), axis=1)
 
     if not initial_parameters:
-        a = np.matrix(np.ones(X.shape[1])).transpose()
+        weights = np.matrix(np.ones(X.shape[1])).transpose()
     else:
-        a = initial_parameters
+        weights = initial_parameters
 
-    y_hat = model(a, X) #prediction
+    y_hat = model(weights, X) #prediction
     loss = L(y_hat, y)
     loss_track = []
 
@@ -208,8 +205,8 @@ def learn_gradient_descent(trainingset: dict[str, np.ndarray],
     i = 0
     while abs(l1 - l2) > eps:
         gradient = gradL(X, y_hat, y)
-        a = a - gradient*learning_rate         # update parameters
-        y_hat = model(a, X)
+        weights = weights - gradient*learning_rate         # update parameters
+        y_hat = model(weights, X)
         
         
         
@@ -217,12 +214,12 @@ def learn_gradient_descent(trainingset: dict[str, np.ndarray],
         l2 = l1
         l1 = abs(L(y_hat, y))
         i += 1
-        if i % 1000 == 0:
+        if i % 100 == 0:
             print(f"l1 = abs(L(u, y)) = {l1},                l2 = {l2},        abs(l1 - l2) = {abs(l1 - l2)}")
             i = 0
     
     
-    return {'parameters': a, 'loss_track': np.array(loss_track), 'features+bias': X}
+    return {'parameters': weights, 'loss_track': np.array(loss_track), 'features+bias': X}
 
 
 def learn_stochastic_gradient_descent(trainingset: dict[str, np.ndarray],
@@ -372,7 +369,6 @@ if __name__ == '__main__':
     visualize_data(dataset_training, title="Training set - normalized data")
 
     # print(np.max(dataset_training['features']))
-    # input("continue:")
     # print(dataset_training['features'])
     # results_gd = learn_gradient_descent(dataset_training,
     #                 logreg_model_gd,
