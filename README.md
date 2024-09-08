@@ -1,6 +1,7 @@
 # Music classifier
 Classifes songs in the dataset from https://www.kaggle.com/datasets/zaheenhamidani/ultimate-spotify-tracks-db
-as either pop-music or classical music.
+as either pop-music or classical music. This code was created as part of a mandatory assignment in the 
+course [FYS-2021 Machine Learning](https://uit.no/utdanning/emner/emne?p_document_id=842206) at UiT.
 
 ## Installing dependencies
 
