@@ -4,6 +4,7 @@ from IPython.display import display
 from unzip_dataset import extract_dataset, DATASET_FOLDER_NAME
 
 from matplotlib import pyplot as plt
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 
 
 # for plotting contour line for classification.
@@ -48,13 +49,17 @@ def get_data(training:bool = True, normalize=True, splitpercent=0.8) -> dict[str
     dataset['labels'] = vlabeler(dataset['genre'])
 
     if training:
+
+       # find indexes belonging to each label
         pop_indices = np.array(dataset.groupby(by="labels").indices[1])
         classic_indices = np.array(dataset.groupby(by="labels").indices[0])
 
+        # shuffle at random 
         rng = np.random.default_rng()
         rng.shuffle(pop_indices)
         rng.shuffle(classic_indices)
 
+        # split the data
         sp = splitpercent
         training_indices = np.concatenate((pop_indices[:int(sp*number_of_popsongs)], classic_indices[:int(sp*number_of_classicals)]))
         testing_indices = np.concatenate((pop_indices[int(sp*number_of_popsongs):], classic_indices[int(sp*number_of_classicals):]))
@@ -91,7 +96,7 @@ def get_data(training:bool = True, normalize=True, splitpercent=0.8) -> dict[str
         return {'features': features, 'labels': labels}
 
 
-def visualize_data(dataset: dict[str: np.ndarray]) -> None:
+def visualize_data(dataset: dict[str: np.ndarray], title: str = None) -> None:
     """
     dataset must be a dictionary with keys 'features' and 'labels' 
     features can be an nx2 array, while the labels must be nx1.
@@ -103,6 +108,8 @@ def visualize_data(dataset: dict[str: np.ndarray]) -> None:
     plt.scatter(X, Y, c=colors)
     plt.xlabel('liveness')
     plt.ylabel('loudness')
+    if title:
+        plt.title(title)
     plt.show()
 
 
@@ -168,7 +175,8 @@ def learn_gradient_descent(trainingset: dict[str, np.ndarray],
                                 initial_parameters:None|np.ndarray = None) -> dict[str: np.ndarray]:
     """
     model: the parametric model 
-    L: the loss function    -    we minimize the loss function L(u, y) where labels are y and the predicted values are u with parameters a fed into the model
+    L: the loss function    -    we minimize the loss function L(u, y) where labels are y and the
+                                 predicted values are u with parameters a fed into the model
     gradL: the gradient of the loss function
     initial_parameters: you can make a guess
     """
@@ -191,30 +199,30 @@ def learn_gradient_descent(trainingset: dict[str, np.ndarray],
     else:
         a = initial_parameters
 
-    u = model(a, X)
-    loss = L(u, y)
+    y_hat = model(a, X) #prediction
+    loss = L(y_hat, y)
     loss_track = []
 
     l1, l2 = abs(loss), abs(loss) + eps + 10
 
     i = 0
     while abs(l1 - l2) > eps:
-        g = gradL(X, u, y)
-        a = a - g*learning_rate         # update parameters
-        u = model(a, X)
+        gradient = gradL(X, y_hat, y)
+        a = a - gradient*learning_rate         # update parameters
+        y_hat = model(a, X)
         
         
         
         loss_track.append(l1)
         l2 = l1
-        l1 = abs(L(u, y))
+        l1 = abs(L(y_hat, y))
         i += 1
         if i % 1000 == 0:
             print(f"l1 = abs(L(u, y)) = {l1},                l2 = {l2},        abs(l1 - l2) = {abs(l1 - l2)}")
             i = 0
     
     
-    return {'parameters': a, 'loss_track': loss_track}
+    return {'parameters': a, 'loss_track': np.array(loss_track), 'features+bias': X}
 
 
 def learn_stochastic_gradient_descent(trainingset: dict[str, np.ndarray],
@@ -226,7 +234,8 @@ def learn_stochastic_gradient_descent(trainingset: dict[str, np.ndarray],
                                      initial_parameters:None|np.ndarray = None) -> dict[str: np.ndarray]:
     """
     model: the parametric model 
-    L: the loss function    -    we minimize the loss function L(u, y) where labels are y and the predicted values are u with parameters a fed into the model
+    L: the loss function    -    we minimize the loss function L(u, y) where labels are y and 
+                                 the predicted values are u with parameters a fed into the model
     gradL: the gradient of the loss function
     initial_parameters: you can make a guess
     """
@@ -292,18 +301,65 @@ def classifier(weights, model, sample):
 def evaluate_model(weights, model, features, labels):
 
     N = max(features.shape) # number of samples
+    
+    predictions = np.zeros(N)
 
     correct_predictions = 0
     for i in range(N):
         sample_i = np.squeeze(np.asarray(features[i]))  # i'th row in the feature matrix  -- turn matrix into 1-D-ndarray
         label_i = np.squeeze(np.asarray(labels[i]))
         # print(f"label_i = {label_i},      type(label_i) = {type(label_i)}")
-        correct_pred = int(classifier(weights, model, sample_i) == label_i)
+        prediction = int(classifier(weights, model, sample_i))
+        predictions[i] = prediction
+        correct_pred = int(prediction == label_i)
         correct_predictions += correct_pred
     
-    return correct_predictions / N
+    return (correct_predictions / N), predictions
 
 
+def model_summary(results: dict[str: np.matrix | np.ndarray], model, dataset_training, dataset_testing):
+    print()
+    print("###################### model summary #######################################")
+    weights, features_training, labels_training = results['parameters'], results['features+bias'], dataset_training['labels']
+
+    print(f"weights = {weights}")
+
+    number_of_samples = max(dataset_testing['labels'].shape)
+    bias = np.matrix(np.ones(number_of_samples)).transpose()
+    features_testing = dataset_testing['features']
+    features_testing = np.concatenate((features_testing, bias), axis=1)
+    labels_testing = dataset_testing['labels']
+
+    accuracy_training_set, predictions_training_set = evaluate_model(weights, model, features_training, labels_training)
+    accuracy_testing_set, predictions_testing_set = evaluate_model(weights, model, features_testing, labels_testing)
+    print(f"accuracy on training set = {accuracy_training_set}")
+    print(f"accuracy on test set = {accuracy_testing_set}")
+
+
+    # https://scikit-learn.org/stable/modules/generated/sklearn.metrics.confusion_matrix.html
+    confm_training = confusion_matrix(np.asarray(labels_training), predictions_training_set)
+    confm_testing = confusion_matrix(np.asarray(labels_testing), predictions_testing_set)
+    
+    # https://scikit-learn.org/stable/modules/generated/sklearn.metrics.ConfusionMatrixDisplay.html#sklearn.metrics.ConfusionMatrixDisplay 
+    disp_tr = ConfusionMatrixDisplay.from_predictions(predictions_training_set, np.asarray(labels_training))
+    disp_tr.plot()
+    plt.title('Training set. 1 is pop music, 0 is classical')
+    plt.show()
+
+    disp_te = ConfusionMatrixDisplay.from_predictions(predictions_testing_set, np.asarray(labels_testing))
+    disp_te.plot()
+    plt.title('Testing set. 1 is pop music, 0 is classical')
+    plt.show()
+
+
+
+
+
+def evaluate_sgd(results: dict[str: np.matrix | np.ndarray], dataset_training, dataset_testing):
+    model_summary(results, logreg_model_sgd, dataset_training, dataset_testing)
+
+def evaluate_gd(results: dict[str: np.matrix | np.ndarray], dataset_traning, dataset_testing):
+    model_summary(results, logreg_model_gd, dataset_training, dataset_testing)
 
 
 
@@ -313,7 +369,7 @@ if __name__ == '__main__':
     dataset_testing = {'features': dataset_learning['testing-features'], 'labels': dataset_learning['testing-labels']}
 
     # visualize_data(get_data(training=False))
-    # visualize_data(dataset_training)
+    visualize_data(dataset_training, title="Training set - normalized data")
 
     # print(np.max(dataset_training['features']))
     # input("continue:")
@@ -326,35 +382,27 @@ if __name__ == '__main__':
     #                 )
 
     # plt.figure()
-    # plt.plot(results_gd['loss_track'][50:])
+    # plt.plot(results_gd['loss_track'][5:])
     # plt.yscale('log')
     # plt.show()
 
+    # evaluate_gd(results_gd, dataset_training, dataset_testing)
 
     results_sgd = learn_stochastic_gradient_descent(dataset_training,
                     logreg_model_sgd,
                     loss_function,
                     grad_loss_sgd,
                     learning_rate=0.005,
-                    epochs=100,
+                    epochs=10,
                     )
 
     plt.figure()
     plt.plot(results_sgd['loss_track'])
+    plt.xlabel('epochs')
+    plt.ylabel('loss')
+    plt.title('cross entropy loss')
     plt.yscale('log')
     plt.show()
 
-    weights, features_training, labels = results_sgd['parameters'], results_sgd['features+bias'], dataset_training['labels']
-
-    number_of_samples = max(dataset_testing['labels'].shape)
-    features_testing = dataset_testing['features']
-    bias = np.matrix(np.ones(number_of_samples)).transpose()
-    features_testing = np.concatenate((features_testing, bias), axis=1)
-
-    accuracy_training_set = evaluate_model(weights, logreg_model_sgd, features_training, labels)
-    accuracy_testing_set = evaluate_model(weights, logreg_model_sgd, features_testing, labels)
-    print(f"accuracy on training set = {accuracy_training_set}")
-    print(f"accuracy on test set = {accuracy_testing_set}")
-
-
+    evaluate_sgd(results_sgd, dataset_training, dataset_testing)
     
