@@ -14,7 +14,6 @@ source venv-ml/bin/activate
 If you are using another shell than regular `bash` you may need to change the second line. E.g for `fish` it will be 
 
 ```
-python3 -m venv venv-ml
 source venv-ml/bin/activate.fish
 ```
 
