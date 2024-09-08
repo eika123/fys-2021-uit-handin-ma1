@@ -6,9 +6,11 @@ as either pop-music or classical music.
 
 ### Make a virtual environment and activate it
 
+```
 python3 -m venv venv-ml
 source venv-ml/bin/activate
 ```
+
 If you are using another shell than regular `bash` you may need to change the second line. E.g for `fish` it will be 
 
 ```
@@ -32,6 +34,7 @@ pip install -r requirements.txt
 The dataset is provided as a zip-file in the kaggle link. Download it if you don't have it. 
 The program will open it and and extract files if necessary, i.e if they are not extracted before.
 Run 
+
 ```
 python spotify_classifier.py
 ``` 
