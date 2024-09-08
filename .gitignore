@@ -1,0 +1,14 @@
+SpotifyFeatures.csv
+
+.dataset
+
+.venv
+*.venv
+*ml-venv
+*venv-ml
+
+
+
+__pycache__
+
+__pycache__/
